@@ -8,6 +8,11 @@
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres_Auth-3ECF8E?logo=supabase&logoColor=white)
 ![Gemini](https://img.shields.io/badge/Gemini-AI_Quiz_Generation-4285F4)
 
+## Live Deployment
+
+- Live app: [https://lustrous-alpaca-440feb.netlify.app](https://lustrous-alpaca-440feb.netlify.app)
+- Repository: [https://github.com/dhineshbuilder/6ixQuest](https://github.com/dhineshbuilder/6ixQuest)
+
 ## Screenshots
 
 ### Home
@@ -121,8 +126,8 @@ Row Level Security is enabled so authenticated creators can manage their own qui
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/6ixquest.git
-cd 6ixquest
+git clone https://github.com/dhineshbuilder/6ixQuest.git
+cd 6ixQuest
 ```
 
 ### 2. Install dependencies
@@ -167,7 +172,7 @@ For authentication:
 - Enable Google OAuth if you want Google sign-in.
 - Add local and deployed URLs to Supabase Auth redirect URLs:
   - `http://localhost:5173`
-  - `https://your-netlify-site.netlify.app`
+  - `https://lustrous-alpaca-440feb.netlify.app`
 
 ### 5. Start the development server
 
