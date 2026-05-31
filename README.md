@@ -31,7 +31,7 @@
 - Automatic scoring and detailed response review.
 - CSV export for quiz results.
 - Responsive UI built with Tailwind CSS and Lucide icons.
-- Vercel-ready SPA routing through `vercel.json`.
+- Netlify-ready SPA routing through `netlify.toml` and `public/_redirects`.
 
 ## Tech Stack
 
@@ -43,7 +43,7 @@
 | Icons | Lucide React |
 | Backend services | Supabase Auth, Supabase Postgres, Row Level Security |
 | AI generation | Google Gemini API through `src/lib/gemini.ts` |
-| Deployment | Vercel |
+| Deployment | Netlify |
 
 ## Architecture Overview
 
@@ -63,7 +63,7 @@ flowchart LR
   DB --> Questions[questions]
   DB --> Responses[responses]
 
-  Vercel[Vercel Hosting] --> UI
+  Netlify[Netlify Hosting] --> UI
 ```
 
 ### Application Flow
@@ -90,22 +90,23 @@ Row Level Security is enabled so authenticated creators can manage their own qui
 
 ```text
 .
-├── public/
-│   └── screenshots/
-├── src/
-│   ├── components/
-│   ├── contexts/
-│   ├── lib/
-│   │   ├── gemini.ts
-│   │   ├── groq.ts
-│   │   └── supabase.ts
-│   ├── pages/
-│   └── types/
-├── supabase/
-│   └── migrations/
-├── vercel.json
-├── vite.config.ts
-└── package.json
++-- public/
+|   +-- _redirects
+|   +-- screenshots/
++-- src/
+|   +-- components/
+|   +-- contexts/
+|   +-- lib/
+|   |   +-- gemini.ts
+|   |   +-- groq.ts
+|   |   +-- supabase.ts
+|   +-- pages/
+|   +-- types/
++-- supabase/
+|   +-- migrations/
++-- netlify.toml
++-- vite.config.ts
++-- package.json
 ```
 
 ## Setup Instructions
@@ -166,7 +167,7 @@ For authentication:
 - Enable Google OAuth if you want Google sign-in.
 - Add local and deployed URLs to Supabase Auth redirect URLs:
   - `http://localhost:5173`
-  - `https://your-vercel-domain.vercel.app`
+  - `https://your-netlify-site.netlify.app`
 
 ### 5. Start the development server
 
@@ -192,28 +193,30 @@ Preview the production build:
 npm run preview
 ```
 
-## Vercel Deployment
+## Netlify Deployment
 
-This project includes `vercel.json` so React Router routes work after refresh.
+This project includes `netlify.toml` and `public/_redirects` so Netlify builds Vite correctly and React Router routes work after refresh.
 
-```json
-{
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
-}
+```toml
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
 ```
 
-Vercel settings:
+Netlify settings:
 
 | Setting | Value |
 | --- | --- |
-| Framework Preset | Vite |
 | Install Command | `npm install` |
 | Build Command | `npm run build` |
-| Output Directory | `dist` |
+| Publish directory | `dist` |
 
-Add these environment variables in Vercel:
+Add these environment variables in Netlify:
 
 ```env
 VITE_SUPABASE_URL=...
@@ -222,7 +225,9 @@ VITE_GEMINI_API_KEY=...
 VITE_GEMINI_MODEL=gemini-2.5-flash
 ```
 
-After deployment, add the Vercel URL to Supabase Auth redirect URLs.
+After deployment, add the Netlify URL to Supabase Auth redirect URLs.
+
+If you deploy by drag and drop, drag the generated `dist` folder, not the project root. Deploying the project root will make the browser request `/src/main.tsx` and can cause a MIME type error.
 
 ## Available Scripts
 
