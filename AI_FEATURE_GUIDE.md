@@ -123,7 +123,7 @@ Click **"Create Quiz"** to save your AI-generated quiz to the database.
 
 ### AI Model
 - **Provider**: Groq
-- **Model**: Llama 3.1 70B Versatile
+- **Model**: Llama 3.3 70B Versatile
 - **Speed**: Ultra-fast inference (~500 tokens/second)
 - **Cost**: Free tier available
 

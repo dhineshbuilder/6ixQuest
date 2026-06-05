@@ -1,12 +1,12 @@
 # 6ixQuest
 
-6ixQuest is an AI-assisted quiz creation and assessment platform for educators, trainers, and teams. Creators can build quizzes manually or generate questions with Gemini, share public quiz links, collect student responses, and review results from a protected dashboard.
+6ixQuest is an AI-assisted quiz creation and assessment platform for educators, trainers, and teams. Creators can build quizzes manually or generate questions with Groq, share public quiz links, collect student responses, and review results from a protected dashboard.
 
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres_Auth-3ECF8E?logo=supabase&logoColor=white)
-![Gemini](https://img.shields.io/badge/Gemini-AI_Quiz_Generation-4285F4)
+![Groq](https://img.shields.io/badge/Groq-AI_Quiz_Generation-F55036)
 
 ## Live Deployment
 
@@ -25,7 +25,7 @@
 
 ## Features
 
-- AI quiz generation from a topic or study notes using Google Gemini.
+- AI quiz generation from a topic or study notes using Groq.
 - Manual quiz builder with editable questions, options, correct answers, and ordering.
 - Teacher authentication with email/password and Google sign-in through Supabase Auth.
 - Protected creator dashboard for managing quizzes.
@@ -36,7 +36,7 @@
 - Automatic scoring and detailed response review.
 - CSV export for quiz results.
 - Responsive UI built with Tailwind CSS and Lucide icons.
-- Netlify-ready SPA routing through `netlify.toml` and `public/_redirects`.
+- Vercel-ready SPA routing through `vercel.json`.
 
 ## Tech Stack
 
@@ -47,8 +47,8 @@
 | Routing | React Router |
 | Icons | Lucide React |
 | Backend services | Supabase Auth, Supabase Postgres, Row Level Security |
-| AI generation | Google Gemini API through `src/lib/gemini.ts` |
-| Deployment | Netlify |
+| AI generation | Groq API through `src/lib/groq.ts` |
+| Deployment | Vercel |
 
 ## Architecture Overview
 
@@ -59,7 +59,7 @@ flowchart LR
 
   UI --> Auth[Supabase Auth]
   UI --> DB[(Supabase Postgres)]
-  UI --> AI[Gemini API]
+  UI --> AI[Groq API]
 
   Auth --> UI
   AI --> UI
@@ -68,13 +68,13 @@ flowchart LR
   DB --> Questions[questions]
   DB --> Responses[responses]
 
-  Netlify[Netlify Hosting] --> UI
+  Vercel[Vercel Hosting] --> UI
 ```
 
 ### Application Flow
 
 1. A teacher signs in through Supabase Auth.
-2. The teacher creates a quiz manually or generates quiz content with Gemini.
+2. The teacher creates a quiz manually or generates quiz content with Groq.
 3. Quiz metadata is stored in `quizzes`; questions are stored in `questions`.
 4. The teacher shares a `/quiz/:id` link with students.
 5. Students submit answers without logging in.
@@ -102,13 +102,13 @@ Row Level Security is enabled so authenticated creators can manage their own qui
 |   +-- components/
 |   +-- contexts/
 |   +-- lib/
-|   |   +-- gemini.ts
 |   |   +-- groq.ts
 |   |   +-- supabase.ts
 |   +-- pages/
 |   +-- types/
 +-- supabase/
 |   +-- migrations/
++-- vercel.json
 +-- netlify.toml
 +-- vite.config.ts
 +-- package.json
@@ -121,7 +121,7 @@ Row Level Security is enabled so authenticated creators can manage their own qui
 - Node.js 18 or newer
 - npm
 - Supabase project
-- Google Gemini API key
+- Groq API key
 
 ### 1. Clone the repository
 
@@ -144,14 +144,10 @@ Create `.env` in the project root:
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-VITE_GEMINI_API_KEY=your_gemini_api_key
-VITE_GEMINI_MODEL=gemini-2.5-flash
-
-# Optional legacy provider key. The current UI uses Gemini.
 VITE_GROQ_API_KEY=your_groq_api_key
 ```
 
-Important: variables prefixed with `VITE_` are exposed to the browser bundle. For a public production app, restrict the Gemini key in Google Cloud/AI Studio or move AI generation behind a server-side API route.
+Important: variables prefixed with `VITE_` are exposed to the browser bundle. For a public production app, consider moving AI generation behind a server-side API route so your Groq key is not shipped to browsers.
 
 ### 4. Configure Supabase
 
@@ -172,7 +168,7 @@ For authentication:
 - Enable Google OAuth if you want Google sign-in.
 - Add local and deployed URLs to Supabase Auth redirect URLs:
   - `http://localhost:5173`
-  - `https://lustrous-alpaca-440feb.netlify.app`
+  - `https://your-project.vercel.app`
 
 ### 5. Start the development server
 
@@ -198,41 +194,49 @@ Preview the production build:
 npm run preview
 ```
 
-## Netlify Deployment
+## Vercel Deployment
 
-This project includes `netlify.toml` and `public/_redirects` so Netlify builds Vite correctly and React Router routes work after refresh.
+This project includes `vercel.json` so Vercel builds Vite correctly and React Router routes work after refresh or direct visits.
 
-```toml
-[build]
-  command = "npm run build"
-  publish = "dist"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+```json
+{
+  "framework": "vite",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
 ```
 
-Netlify settings:
+Vercel settings:
 
 | Setting | Value |
 | --- | --- |
+| Framework Preset | `Vite` |
 | Install Command | `npm install` |
 | Build Command | `npm run build` |
-| Publish directory | `dist` |
+| Output Directory | `dist` |
 
-Add these environment variables in Netlify:
+Add these environment variables in Vercel:
 
 ```env
 VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
-VITE_GEMINI_API_KEY=...
-VITE_GEMINI_MODEL=gemini-2.5-flash
+VITE_GROQ_API_KEY=...
 ```
 
-After deployment, add the Netlify URL to Supabase Auth redirect URLs.
+After deployment, add the Vercel URL to Supabase Auth redirect URLs.
 
-If you deploy by drag and drop, drag the generated `dist` folder, not the project root. Deploying the project root will make the browser request `/src/main.tsx` and can cause a MIME type error.
+If you deploy by drag and drop, drag the generated `dist` folder. For normal Git-based Vercel deployment, import the repository and let Vercel run `npm run build`.
+
+### Optional Netlify Deployment
+
+The existing `netlify.toml` and `public/_redirects` files are still present if you also want to deploy on Netlify.
 
 ## Available Scripts
 
@@ -249,9 +253,7 @@ If you deploy by drag and drop, drag the generated `dist` folder, not the projec
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | Yes | Supabase project URL |
 | `VITE_SUPABASE_ANON_KEY` | Yes | Supabase anonymous public key |
-| `VITE_GEMINI_API_KEY` | Yes | Gemini API key used for AI quiz generation |
-| `VITE_GEMINI_MODEL` | Recommended | Gemini model name, defaults to `gemini-2.5-flash` |
-| `VITE_GROQ_API_KEY` | No | Legacy/optional Groq key if you wire the Groq service back in |
+| `VITE_GROQ_API_KEY` | Yes | Groq API key used for AI quiz generation |
 
 ## Notes
 
@@ -259,7 +261,7 @@ If you deploy by drag and drop, drag the generated `dist` folder, not the projec
 - `.env.example` documents the required variable names.
 - Students can access quiz-taking routes without authentication.
 - Teachers must be authenticated to create, edit, share, and review quizzes.
-- The app currently calls Gemini directly from the browser, which is convenient for a frontend-only deployment but not ideal for protecting production API keys.
+- The app currently calls Groq directly from the browser, which is convenient for a frontend-only deployment but not ideal for protecting production API keys.
 
 ## License
 

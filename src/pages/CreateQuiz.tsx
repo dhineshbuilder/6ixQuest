@@ -6,7 +6,7 @@ import { Question } from '../types/database';
 import Navbar from '../components/Navbar';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Plus, Trash2, MoveUp, MoveDown, Save, Eye, Wand2, X } from 'lucide-react';
-import { generateQuizContent } from '../lib/gemini';
+import { generateQuizContent } from '../lib/groq';
 
 const CreateQuiz: React.FC = () => {
   const [title, setTitle] = useState('');
