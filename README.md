@@ -10,7 +10,7 @@
 
 ## Live Deployment
 
-- Live app: [https://lustrous-alpaca-440feb.netlify.app](https://lustrous-alpaca-440feb.netlify.app)
+- Live app: [https://6ix-quest.vercel.app](https://6ix-quest.vercel.app)
 - Repository: [https://github.com/dhineshbuilder/6ixQuest](https://github.com/dhineshbuilder/6ixQuest)
 
 ## Screenshots
