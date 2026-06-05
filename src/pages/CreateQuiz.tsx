@@ -1,12 +1,26 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
 import { Question } from '../types/database';
 import Navbar from '../components/Navbar';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Plus, Trash2, MoveUp, MoveDown, Save, Eye, Wand2, X } from 'lucide-react';
 import { generateQuizContent } from '../lib/groq';
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object') {
+    const err = error as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown };
+    return [err.message, err.details, err.hint, err.code ? `Code: ${err.code}` : null]
+      .filter(Boolean)
+      .join(' ');
+  }
+
+  return 'Unknown error';
+};
 
 const CreateQuiz: React.FC = () => {
   const [title, setTitle] = useState('');
@@ -30,7 +44,6 @@ const CreateQuiz: React.FC = () => {
   const [aiDifficulty, setAiDifficulty] = useState('Medium');
   const [aiLoading, setAiLoading] = useState(false);
 
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   const addQuestion = () => {
@@ -162,27 +175,36 @@ const CreateQuiz: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm() || !user) return;
+    if (!validateForm()) return;
 
     setLoading(true);
     try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!session?.user) {
+        alert('Please sign in again before creating a quiz.');
+        navigate('/login');
+        return;
+      }
+
       // Create quiz
       const { data: quiz, error: quizError } = await supabase
         .from('quizzes')
         .insert({
           title: title?.trim() || '',
           description: description?.trim() || null,
-          created_by: user.id,
+          created_by: session.user.id,
           is_active: true
-        } as any)
+        })
         .select()
         .single();
 
-      if (quizError || !quiz) throw quizError;
+      if (quizError) throw quizError;
+      if (!quiz) throw new Error('Quiz was not created. Please try again.');
 
       // Create questions
       const questionsToInsert = questions.map((question) => ({
-        quiz_id: (quiz as any).id,
+        quiz_id: quiz.id,
         question_text: question?.question_text?.trim() || '',
         options: question?.options?.map(opt => opt?.trim() || '') || [],
         correct_answer: question?.correct_answer?.trim() || '',
@@ -191,14 +213,15 @@ const CreateQuiz: React.FC = () => {
 
       const { error: questionsError } = await supabase
         .from('questions')
-        .insert(questionsToInsert as any);
+        .insert(questionsToInsert);
 
       if (questionsError) throw questionsError;
 
       navigate('/dashboard');
     } catch (error) {
-      console.error('Error creating quiz:', error);
-      alert('Failed to create quiz. Please try again.');
+      const message = getErrorMessage(error);
+      console.error('Error creating quiz:', { message, error });
+      alert(`Failed to create quiz: ${message}`);
     } finally {
       setLoading(false);
     }
