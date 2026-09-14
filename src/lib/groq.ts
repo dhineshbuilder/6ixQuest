@@ -9,19 +9,20 @@ const groq = new Groq({
 
 let discoveredWorkingModel: string | null = null;
 
-const STATIC_FALLBACK_MODELS = [
+const PRIORITY_MODELS = [
     import.meta.env.VITE_GROQ_MODEL,
+    'groq/compound-mini',
+    'groq/compound',
     'openai/gpt-oss-120b',
     'openai/gpt-oss-20b',
     'qwen/qwen3.6-27b',
     'llama-3.3-70b-versatile',
     'llama-3.1-8b-instant',
-    'llama-3.1-70b-versatile',
     'mixtral-8x7b-32768',
 ].filter(Boolean) as string[];
 
 /**
- * Fetch available chat models dynamically from the user's Groq account
+ * Fetch available chat/text models dynamically from the user's Groq account
  */
 const getAvailableChatModels = async (): Promise<string[]> => {
     const list: string[] = [];
@@ -36,7 +37,7 @@ const getAvailableChatModels = async (): Promise<string[]> => {
     try {
         const response = await groq.models.list();
         if (response?.data && Array.isArray(response.data)) {
-            // Filter out non-chat models (whisper, guard, embeddings)
+            // Filter out non-text/specialized non-chat models (audio, tts, orpheus, embeddings, guard)
             const chatModels = response.data
                 .map((m) => m.id)
                 .filter((id) => {
@@ -45,10 +46,22 @@ const getAvailableChatModels = async (): Promise<string[]> => {
                         !lower.includes('whisper') &&
                         !lower.includes('guard') &&
                         !lower.includes('embed') &&
-                        !lower.includes('tts')
+                        !lower.includes('tts') &&
+                        !lower.includes('orpheus') &&
+                        !lower.includes('speech') &&
+                        !lower.includes('audio') &&
+                        !lower.includes('voice')
                     );
                 });
 
+            // Add priority models first if they exist in the returned list
+            for (const priority of PRIORITY_MODELS) {
+                if (chatModels.includes(priority) && !list.includes(priority)) {
+                    list.push(priority);
+                }
+            }
+
+            // Then add any remaining valid chat models
             for (const modelId of chatModels) {
                 if (!list.includes(modelId)) {
                     list.push(modelId);
@@ -56,10 +69,11 @@ const getAvailableChatModels = async (): Promise<string[]> => {
             }
         }
     } catch (err) {
-        console.warn('Could not query dynamic models list from Groq. Falling back to predefined list.', err);
+        console.warn('Could not query dynamic models list from Groq. Falling back to priority list.', err);
     }
 
-    for (const model of STATIC_FALLBACK_MODELS) {
+    // Ensure all priority fallbacks are in list as well
+    for (const model of PRIORITY_MODELS) {
         if (!list.includes(model)) {
             list.push(model);
         }
@@ -79,11 +93,16 @@ const isModelUnavailableError = (error: any): boolean => {
         status === 400 ||
         code === 'model_not_found' ||
         code === 'model_decommissioned' ||
+        code === 'model_terms_required' ||
+        code === 'invalid_request_error' ||
         message.includes('does not exist') ||
         message.includes('not found') ||
         message.includes('decommissioned') ||
         message.includes('no longer supported') ||
-        message.includes('do not have access')
+        message.includes('do not have access') ||
+        message.includes('terms acceptance') ||
+        message.includes('terms required') ||
+        message.includes('model')
     );
 };
 
