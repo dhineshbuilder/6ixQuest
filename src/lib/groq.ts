@@ -7,6 +7,53 @@ const groq = new Groq({
     dangerouslyAllowBrowser: true, // Required for client-side usage
 });
 
+const CANDIDATE_MODELS = [
+    import.meta.env.VITE_GROQ_MODEL,
+    'llama-3.1-8b-instant',
+    'llama-3.3-70b-versatile',
+    'llama3-70b-8192',
+    'llama3-8b-8192',
+    'gemma2-9b-it',
+    'mixtral-8x7b-32768',
+].filter(Boolean) as string[];
+
+/**
+ * Execute chat completion with automated fallback across available Groq models.
+ */
+const createGroqChatCompletion = async (
+    params: Omit<Groq.Chat.CompletionCreateParamsNonStreaming, 'model'> & { model?: string }
+) => {
+    const modelsToTry = params.model
+        ? [params.model, ...CANDIDATE_MODELS.filter((m) => m !== params.model)]
+        : CANDIDATE_MODELS;
+
+    let lastError: any = null;
+
+    for (const model of modelsToTry) {
+        try {
+            return await groq.chat.completions.create({
+                ...params,
+                model,
+            });
+        } catch (error: any) {
+            lastError = error;
+            const isModelNotFound =
+                error?.status === 404 ||
+                error?.error?.code === 'model_not_found' ||
+                (typeof error?.message === 'string' &&
+                    (error.message.includes('does not exist') || error.message.includes('model_not_found')));
+
+            if (isModelNotFound) {
+                console.warn(`Groq model '${model}' not available on this API key/tier. Trying next fallback model...`);
+                continue;
+            }
+            throw error;
+        }
+    }
+
+    throw lastError;
+};
+
 export interface AIQuizResponse {
     title: string;
     description: string;
@@ -219,12 +266,11 @@ Return ONLY the JSON quiz object.
 CRITICAL: You MUST generate EXACTLY ${count} questions. No more, no less.
 Count the questions before returning to ensure you have exactly ${count} questions in the array.`;
 
-    const completion = await groq.chat.completions.create({
+    const completion = await createGroqChatCompletion({
         messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userContent },
         ],
-        model: 'llama-3.3-70b-versatile',
         temperature: 0.5,
         max_tokens: 8000,
         response_format: { type: 'json_object' },
@@ -392,12 +438,11 @@ CRITICAL: You MUST generate EXACTLY ${count} questions. No more, no less.
 Count the questions before returning to ensure you have exactly ${count} questions in the array.`;
 
     try {
-        const completion = await groq.chat.completions.create({
+        const completion = await createGroqChatCompletion({
             messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userContent },
             ],
-            model: 'llama-3.3-70b-versatile',
             temperature: 0.5,
             max_tokens: 8000,
             response_format: { type: 'json_object' },
@@ -417,7 +462,7 @@ Count the questions before returning to ensure you have exactly ${count} questio
             const missingCount = count - result.questions.length;
 
             // Smarter retry: Only ask for the MISSING questions, then append them
-            const retryCompletion = await groq.chat.completions.create({
+            const retryCompletion = await createGroqChatCompletion({
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user', content: userContent },
@@ -430,7 +475,6 @@ Count the questions before returning to ensure you have exactly ${count} questio
                         content: `You generated ${result.questions.length} questions, but I need EXACTLY ${count}. Please generate ${missingCount} MORE unique questions on the same topic to complete the set. Return a JSON object with the "questions" array containing ONLY the ${missingCount} new questions.`
                     },
                 ],
-                model: 'llama-3.3-70b-versatile',
                 temperature: 0.5,
                 max_tokens: 4000,
                 response_format: { type: 'json_object' },
@@ -459,4 +503,3 @@ Count the questions before returning to ensure you have exactly ${count} questio
         throw error;
     }
 };
-
