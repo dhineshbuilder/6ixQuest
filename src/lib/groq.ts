@@ -7,44 +7,112 @@ const groq = new Groq({
     dangerouslyAllowBrowser: true, // Required for client-side usage
 });
 
-const CANDIDATE_MODELS = [
+let discoveredWorkingModel: string | null = null;
+
+const STATIC_FALLBACK_MODELS = [
     import.meta.env.VITE_GROQ_MODEL,
-    'llama-3.1-8b-instant',
+    'openai/gpt-oss-120b',
+    'openai/gpt-oss-20b',
+    'qwen/qwen3.6-27b',
     'llama-3.3-70b-versatile',
-    'llama3-70b-8192',
-    'llama3-8b-8192',
-    'gemma2-9b-it',
+    'llama-3.1-8b-instant',
+    'llama-3.1-70b-versatile',
     'mixtral-8x7b-32768',
 ].filter(Boolean) as string[];
 
 /**
- * Execute chat completion with automated fallback across available Groq models.
+ * Fetch available chat models dynamically from the user's Groq account
+ */
+const getAvailableChatModels = async (): Promise<string[]> => {
+    const list: string[] = [];
+
+    if (import.meta.env.VITE_GROQ_MODEL) {
+        list.push(import.meta.env.VITE_GROQ_MODEL);
+    }
+    if (discoveredWorkingModel && !list.includes(discoveredWorkingModel)) {
+        list.push(discoveredWorkingModel);
+    }
+
+    try {
+        const response = await groq.models.list();
+        if (response?.data && Array.isArray(response.data)) {
+            // Filter out non-chat models (whisper, guard, embeddings)
+            const chatModels = response.data
+                .map((m) => m.id)
+                .filter((id) => {
+                    const lower = id.toLowerCase();
+                    return (
+                        !lower.includes('whisper') &&
+                        !lower.includes('guard') &&
+                        !lower.includes('embed') &&
+                        !lower.includes('tts')
+                    );
+                });
+
+            for (const modelId of chatModels) {
+                if (!list.includes(modelId)) {
+                    list.push(modelId);
+                }
+            }
+        }
+    } catch (err) {
+        console.warn('Could not query dynamic models list from Groq. Falling back to predefined list.', err);
+    }
+
+    for (const model of STATIC_FALLBACK_MODELS) {
+        if (!list.includes(model)) {
+            list.push(model);
+        }
+    }
+
+    return list;
+};
+
+const isModelUnavailableError = (error: any): boolean => {
+    if (!error) return false;
+    const status = error?.status;
+    const code = error?.error?.code || error?.code;
+    const message = (error?.error?.message || error?.message || '').toLowerCase();
+
+    return (
+        status === 404 ||
+        status === 400 ||
+        code === 'model_not_found' ||
+        code === 'model_decommissioned' ||
+        message.includes('does not exist') ||
+        message.includes('not found') ||
+        message.includes('decommissioned') ||
+        message.includes('no longer supported') ||
+        message.includes('do not have access')
+    );
+};
+
+/**
+ * Execute chat completion with automated dynamic discovery & fallback across available Groq models.
  */
 const createGroqChatCompletion = async (
     params: Omit<Groq.Chat.CompletionCreateParamsNonStreaming, 'model'> & { model?: string }
 ) => {
+    const availableModels = await getAvailableChatModels();
     const modelsToTry = params.model
-        ? [params.model, ...CANDIDATE_MODELS.filter((m) => m !== params.model)]
-        : CANDIDATE_MODELS;
+        ? [params.model, ...availableModels.filter((m) => m !== params.model)]
+        : availableModels;
 
     let lastError: any = null;
 
     for (const model of modelsToTry) {
         try {
-            return await groq.chat.completions.create({
+            console.log(`Generating quiz with Groq model: ${model}`);
+            const result = await groq.chat.completions.create({
                 ...params,
                 model,
             });
+            discoveredWorkingModel = model;
+            return result;
         } catch (error: any) {
             lastError = error;
-            const isModelNotFound =
-                error?.status === 404 ||
-                error?.error?.code === 'model_not_found' ||
-                (typeof error?.message === 'string' &&
-                    (error.message.includes('does not exist') || error.message.includes('model_not_found')));
-
-            if (isModelNotFound) {
-                console.warn(`Groq model '${model}' not available on this API key/tier. Trying next fallback model...`);
+            if (isModelUnavailableError(error)) {
+                console.warn(`Groq model '${model}' is unavailable (${error?.error?.message || error?.message}). Trying next fallback model...`);
                 continue;
             }
             throw error;
